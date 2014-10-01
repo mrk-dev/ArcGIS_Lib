@@ -8,7 +8,7 @@ import GISServer.gis_server as ags
 class ServiceTest(unittest.TestCase):
 
     def setUp(self):
-        self.gissvr = ags.GISServer("nosat01", "geoadmin", "esri1600!")
+        self.gissvr = ags.GISServer("nosat01", "geoadmin", "XXXXXX")
         self.mapservice = agsservice.MAPService(self.gissvr, "", "test_map")
         self.featureservice = agsservice.FeatureService(self.gissvr, "", "test_featureService")
         self.geocoderservice = agsservice.GeoCoderService(self.gissvr, "", "test_geocoder")

@@ -8,7 +8,7 @@ import os
 class ServerTest(unittest.TestCase):
 
     def setUp(self):
-        self.gisserver = gis_svr.GISServer("nosat01", "geoadmin", "esri1600!")
+        self.gisserver = gis_svr.GISServer("nosat01", "geoadmin", "XXXXXX")
 
     def test_connect(self):
         print "Test token retrieval"

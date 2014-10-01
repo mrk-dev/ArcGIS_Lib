@@ -8,7 +8,7 @@ import GISServer.gis_server as ags
 class ServiceTest(unittest.TestCase):
 
     def setUp(self):
-        self.gissvr = ags.GISServer("nosat01", "geoadmin", "esri1600!")
+        self.gissvr = ags.GISServer("nosat01", "geoadmin", "XXXXXX")
         self.service = agsservice.GeoProcessingService(self.gissvr, None, "test_gps",
                                                        r"D:\temp\test.tbx",
                                                        "Script")
