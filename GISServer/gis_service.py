@@ -21,15 +21,16 @@ import os
 import tempfile
 import json
 import web_service
+import collections
 import xml.etree.ElementTree as ET
-import service_extension
+import service_properties
 
 # Default Geocoding Service properties
 DEFAULT_MAX_CANDIDATES = 500
 DEFAULT_MAX_BATCH_SIZE = 1000
 DEFAULT_SUGGESTED_BATCH_SIZE = 1000
 
-# Default Geoprocessing service settings
+# Default Service settings
 DEFAULT_MAX_RECORDS = 1000
 DEFAULT_MIN_INSTANCES = 1
 DEFAULT_MAX_INSTANCES = 2
@@ -57,6 +58,9 @@ class GISService(web_service.WebService):
         self._summary = ""
         self._tags = ""
         self._analysis_results = ""
+
+        self._min_instances = DEFAULT_MIN_INSTANCES
+        self._max_instances = DEFAULT_MAX_INSTANCES
 
     @property
     def service_name(self):
@@ -91,6 +95,26 @@ class GISService(web_service.WebService):
         self._tags = tags_list
 
     @property
+    def min_instances(self):
+        return self._min_instances
+
+    @min_instances.setter
+    def min_instances(self, value):
+        value = 1 if value < 1 else value
+        value = self.max_instances if value > self.max_instances else value
+        self._min_instances = value
+
+    @property
+    def max_instances(self):
+        return self._max_instances
+
+    @max_instances.setter
+    def max_instances(self, value):
+        value = 1 if value < 1 else value
+        value = self.min_instances if value < self._min_instances else value
+        self._max_instances = value
+
+    @property
     def analysis_results(self):
         return self._analysis_results
 
@@ -118,17 +142,6 @@ class GISService(web_service.WebService):
         obj = json.loads(data)
         return obj
 
-    @staticmethod
-    def fix_sddraft_namespaces(root):
-        """
-        Fixes namespaces for sddraft file after XML has been modified.
-        :param root: root element in XML to be fixed
-        """
-
-        # Update namespaces - these get stripped out when parsed by ElementTree
-        root.set("xmlns:xs", "http://www.w3.org/2001/XMLSchema")
-        root.set("xmlns:typens", "http://www.esri.com/schemas/ArcGIS/10.1")
-
 
 class MAPService(GISService):
     """Encapsulates a Map Service"""
@@ -143,6 +156,9 @@ class MAPService(GISService):
         GISService.__init__(self, gis_server, folder_name, service_name, "MapServer")
         self._mxd = mxd
         self._mobile_enabled = False
+        self._mapping = True
+        self._query = True
+        self._data = True
 
     @property
     def mxd(self):
@@ -159,6 +175,11 @@ class MAPService(GISService):
     @mobile_enabled.setter
     def mobile_enabled(self, value):
         self._mobile_enabled = value if type(value) == bool else False
+
+    def set_capabilities(self, mapping, query, data):
+        self._mapping = mapping
+        self._query = query
+        self._data = data
 
     def publish(self):
 
@@ -194,6 +215,23 @@ class MAPService(GISService):
                 res_str += "\n"
             res_str += "\n"
         self._analysis_results = res_str
+
+        # Make any modifications to service capabilities as per settings
+        service_props = service_properties.ServiceProperties(sd_draft)
+        if self.mobile_enabled:
+            mobile_ext = service_props.get_extension("MobileServer")
+            mobile_ext.set_property("Enabled", "true")
+
+        if not self._mapping and self._query and self._data:
+            service_props.set_operations_allowed(self._mapping, self._query, self._data)
+
+        if self.min_instances != DEFAULT_MIN_INSTANCES:
+            service_props.min_instances(self.min_instances)
+
+        if self.max_instances != DEFAULT_MAX_INSTANCES:
+            service_props.max_instances(self.max_instances)
+
+        sd_draft = service_props.get_new_extensions_definition()
 
         # Stage and upload the draft file to the server when no errors found
         if not analysis["errors"]:
@@ -238,20 +276,10 @@ class FeatureService(MAPService):
                                        tags=self.tags)
 
         # Set the Feature Service extension to True
-        feature_ext = service_extension.ServiceExtension(sd_draft, "FeatureServer")
+        service_extensions = service_properties.ServiceProperties(sd_draft)
+        feature_ext = service_extensions.get_extension("FeatureServer")
         feature_ext.set_property("Enabled", "true")
-        tree = feature_ext.root()
-        # Update namespaces - these get stripped out when parsed by ElementTree
-        self.fix_sddraft_namespaces(tree.getroot())
-
-        file_name, file_ext = os.path.splitext(os.path.basename(sd_draft))
-        new_draft = os.path.join(os.path.dirname(sd_draft), file_name + "_updated" + file_ext)
-
-        try:
-            tree.write(new_draft)
-            sd_draft = new_draft
-        except Exception as e:
-            raise Exception("Unable to update draft Service Definition file. {0}".format(e.message))
+        sd_draft = service_extensions.get_new_extensions_definition()
 
         # Analyze the draft service
         analysis = arcpy.mapping.AnalyzeForSD(sd_draft)
@@ -304,7 +332,7 @@ class GeoProcessingService(GISService):
         self._toolbox = toolbox_file
         self._toolbox_alias = os.path.splitext(os.path.basename(toolbox_file))[0]
         self._tool_name = tool_name
-        self._parameters = {}
+        self._parameters = collections.OrderedDict()
         self._is_asynchronous = True
         self._use_result_layer = False
         self._show_messages = "NONE"
@@ -385,12 +413,14 @@ class GeoProcessingService(GISService):
         for key, item in self._parameters.iteritems():
             if isinstance(item, basestring):
                 value = "'{0}'".format(item)
+            elif isinstance(item, object):
+                value = "self._parameters['{0}']".format(key)
             else:
                 value = item
             params += "{0}, ".format(value)
 
-        # strip off last comma from parameters
-        params.rstrip(",")
+        # strip off last comma and space from parameters
+        params = params.rstrip(", ")
 
         # Create execution string
         tool_exe = "arcpy.{0}.{1}({2})".format(self.toolbox_alias, self.tool_name, params)
