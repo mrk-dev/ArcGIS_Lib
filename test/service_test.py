@@ -8,7 +8,7 @@ import GISServer.gis_server as ags
 class ServiceTest(unittest.TestCase):
 
     def setUp(self):
-        self.gissvr = ags.GISServer("nosat01", "geoadmin", "XXXXXX")
+        self.gissvr = ags.GISServer("nosat01", "geoadmin", "esri1600!")
         self.mapservice = agsservice.MAPService(self.gissvr, "", "test_map")
         self.featureservice = agsservice.FeatureService(self.gissvr, "", "test_featureService")
         self.geocoderservice = agsservice.GeoCoderService(self.gissvr, "", "test_geocoder")
@@ -25,6 +25,8 @@ class ServiceTest(unittest.TestCase):
     def test_a_publishmap(self):
         mxd_path = r"D:\Projects\Parks Canada\NIRS 2014\data\mxds\DFRP_GIS_Parcels.mxd"
         self.mapservice.mxd = mxd_path
+        self.mapservice.mobile_enabled = True
+        self.mapservice.max_instances = 4
         result = self.mapservice.publish()
         print result
 
@@ -40,15 +42,7 @@ class ServiceTest(unittest.TestCase):
         srv_exist = self.gissvr.service_exists("", "test_geocoder", "GeocodeServer")
         self.assertIs(srv_exist, True, "Service NOT published")
 
-    def test_z_delete_services(self):
-        self.geocoderservice.delete()
-        self.mapservice.delete()
-        self.featureservice.delete()
 
-        srvs_exist = self.gissvr.service_exists("", "test_map", "MapServer") | \
-                     self.gissvr.service_exists("", "test_featureService", "FeatureServer") | \
-                     self.gissvr.service_exists("", "test_geocoder", "GeocodeServer")
-        self.assertIs(srvs_exist, False, "Service NOT deleted")
 
 if __name__ == "__main__":
     unittest.main()
