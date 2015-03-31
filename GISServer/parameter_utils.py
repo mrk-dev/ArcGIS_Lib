@@ -44,13 +44,3 @@ def create_feature_set(points, shape_type, spatialref_wkid):
     feature_set.load(feature_class)
 
     return feature_set
-
-
-def create_polygon(point_list):
-    # Create a Polygon object based on the array of points
-
-
-    return feature
-
-
-def create_line(point_list):
