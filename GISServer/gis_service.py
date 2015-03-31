@@ -1,5 +1,5 @@
 """
- service.py
+ gis_service.py
  Created on Sep 16, 2014
 
  Encapsulates ArcGIS for Server GIS service properties and methods.
