@@ -22,7 +22,6 @@ import tempfile
 import json
 import web_service
 import collections
-import xml.etree.ElementTree as ET
 import service_properties
 
 # Default Geocoding Service properties
@@ -92,6 +91,12 @@ class GISService(web_service.WebService):
 
     @tags.setter
     def tags(self, tags_list):
+        """
+        Sets the tags for the service
+
+        :param tags_list: a string with comma-separated tags
+        :return:
+        """
         self._tags = tags_list
 
     @property
@@ -606,22 +611,22 @@ class GeoCoderService(GISService):
 class ImageService(GISService):
     """Encapsulates an Image Service"""
 
-    def __init__(self, gis_server, folder_name, service_name, raster=None):
+    def __init__(self, gis_server, folder_name, service_name, raster_dataset=None):
         """
         :param gis_server:
         :param folder_name:
         :param service_name:
         """
         GISService.__init__(gis_server, folder_name, service_name, "ImageServer")
-        self._raster = raster
+        self._raster_dataset = raster_dataset
 
     @property
     def raster(self):
-        return self._raster
+        return self._raster_dataset
 
     @raster.setter
     def raster(self, value):
-        self._raster = value
+        self._raster_dataset = value
 
     def publish(self):
         temp_dir = tempfile.gettempdir()
@@ -630,10 +635,12 @@ class ImageService(GISService):
         ags_con = self.gis_server.create_connection_file()
 
         try:
-            arcpy.CreateImageSDDraft(self.raster, sd_draft, self.service_name,
+            arcpy.CreateImageSDDraft(self._raster_dataset, sd_draft, self.service_name,
                                      "FROM_CONECTION_FILE",
                                      ags_con,
-                                     self.folder_name)
+                                     self.folder_name,
+                                     summary=self.summary,
+                                     tags=self.tags)
         except Exception as ex:
             raise Exception("Unable to create Image service draft. {0}".format(ex.message))
 
